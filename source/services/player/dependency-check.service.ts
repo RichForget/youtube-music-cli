@@ -88,13 +88,28 @@ export function isYtDlpVersionStale(
 function captureStdout(
 	command: string,
 	args: string[],
+	timeoutMs = 10_000,
 ): Promise<string | null> {
 	return new Promise(resolve => {
 		const child = spawn(command, args, {stdio: ['ignore', 'pipe', 'ignore']});
 		let output = '';
+		let settled = false;
+		const settle = (value: string | null) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			resolve(value);
+		};
+
+		// Never let a hung executable stall startup: kill and give up.
+		const timer = setTimeout(() => {
+			child.kill('SIGKILL');
+			settle(null);
+		}, timeoutMs);
+		timer.unref?.();
 
 		child.once('error', () => {
-			resolve(null);
+			settle(null);
 		});
 
 		child.stdout?.on('data', (chunk: Buffer) => {
@@ -102,7 +117,7 @@ function captureStdout(
 		});
 
 		child.once('close', code => {
-			resolve(code === 0 ? output : null);
+			settle(code === 0 ? output : null);
 		});
 	});
 }
@@ -117,7 +132,7 @@ async function warnIfYtDlpStale(): Promise<void> {
 
 		console.error(
 			`Warning: yt-dlp ${output.trim()} is over ${YTDLP_STALE_AFTER_DAYS} days old. ` +
-				'YouTube frequently breaks older versions — update with: brew upgrade yt-dlp (or yt-dlp -U).\n',
+				'YouTube frequently breaks older versions — update with: yt-dlp -U (or brew upgrade yt-dlp).\n',
 		);
 	} catch {
 		// Freshness is best-effort; never block playback on it.

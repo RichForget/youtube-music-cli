@@ -26,10 +26,32 @@ test('googlevideo 403 maps to the update-yt-dlp hint', () => {
 			'Failed to open https://rr1---sn-xxx.googlevideo.com/videoplayback?x=1: HTTP error 403 Forbidden',
 		),
 	).toBe(true);
-	expect(isYouTubeLoadFailure('mpv exited with code 2')).toBe(true);
+	expect(
+		formatPlaybackErrorMessage(
+			new Error(
+				'Failed to open https://rr1---sn-xxx.googlevideo.com/videoplayback?x=1: 403',
+			),
+		),
+	).toBe(YTDLP_STALE_HINT);
+});
+
+test('bare mpv exit codes need YouTube evidence or a known source', () => {
+	// No evidence: original diagnostic preserved (e.g. local files, radio).
+	expect(isYouTubeLoadFailure('mpv exited with code 2')).toBe(false);
 	expect(formatPlaybackErrorMessage(new Error('mpv exited with code 2'))).toBe(
-		YTDLP_STALE_HINT,
+		'mpv exited with code 2',
 	);
+	// Known YouTube source (e.g. empty stderr after --really-quiet): hinted.
+	expect(
+		isYouTubeLoadFailure('mpv exited with code 2', {
+			knownYouTubeSource: true,
+		}),
+	).toBe(true);
+	expect(
+		formatPlaybackErrorMessage(new Error('mpv exited with code 2'), {
+			knownYouTubeSource: true,
+		}),
+	).toBe(YTDLP_STALE_HINT);
 });
 
 test('unrelated errors pass through unchanged', () => {
