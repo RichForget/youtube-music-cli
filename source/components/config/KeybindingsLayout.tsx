@@ -3,7 +3,7 @@ import {Box, Text, useInput} from 'ink';
 import {useState, useCallback} from 'react';
 import {useTheme} from '../../hooks/useTheme.ts';
 import {useNavigation} from '../../hooks/useNavigation.ts';
-import {useKeyBinding} from '../../hooks/useKeyboard.ts';
+import {useKeyBinding, isEscapeKey} from '../../hooks/useKeyboard.ts';
 import {resolveKeybinding} from '../../utils/keybinding-resolver.ts';
 import {useKeyboardBlocker} from '../../hooks/useKeyboardBlocker.tsx';
 import {getConfigService} from '../../services/config/config.service.ts';
@@ -116,7 +116,9 @@ export default function KeybindingsLayout() {
 			else if (key.return) keyName = 'enter';
 			else if (key.tab) keyName = 'tab';
 			else if (key.backspace || key.delete) keyName = 'backspace';
-			else if (key.escape) {
+			else if (isEscapeKey(input, key)) {
+				// Covers terminals that deliver Escape as a raw ESC byte
+				// without setting Ink's key.escape flag.
 				setIsCapturing(false);
 				setStatusMessage('Cancelled');
 				setConflictWarning(null);
