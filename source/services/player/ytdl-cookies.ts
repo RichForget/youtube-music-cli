@@ -8,6 +8,9 @@ export type CookieOptions = {
 export const COOKIES_BOT_HINT =
 	'YouTube blocked playback (bot check). In Settings, set Cookies From Browser (e.g. Edge) or Cookies File, then retry.';
 
+export const YTDLP_STALE_HINT =
+	'YouTube refused to load this stream (HTTP 403). Update yt-dlp (e.g. brew upgrade yt-dlp, or yt-dlp -U) and retry. If it persists, set Cookies From Browser or Cookies File in Settings, then retry.';
+
 export function resolveCookieOptions(options: CookieOptions): CookieOptions {
 	const file = options.cookiesFile?.trim();
 	if (file) {
@@ -64,10 +67,32 @@ export function isYouTubeBotCheckError(message: string): boolean {
 	);
 }
 
+/**
+ * Detect a YouTube stream load failure: extraction succeeded but the media
+ * URL was rejected (HTTP 403 from googlevideo), or mpv died right at load
+ * (exit code 2 = error playing file). Seen with stale yt-dlp versions and
+ * on bot-flagged networks; both cases share the same remediation.
+ */
+export function isYouTubeLoadFailure(message: string): boolean {
+	const lower = message.toLowerCase();
+	return (
+		lower.includes('403') ||
+		lower.includes('forbidden') ||
+		lower.includes('failed to open') ||
+		lower.includes('errors when loading file') ||
+		lower.includes('mpv exited with code 2') ||
+		lower.includes('mpv exited with code 3')
+	);
+}
+
 export function formatPlaybackErrorMessage(error: unknown): string {
 	const message = error instanceof Error ? error.message : String(error);
 	if (isYouTubeBotCheckError(message)) {
 		return COOKIES_BOT_HINT;
+	}
+
+	if (isYouTubeLoadFailure(message)) {
+		return YTDLP_STALE_HINT;
 	}
 
 	return message;
